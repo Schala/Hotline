@@ -161,13 +161,11 @@ std::chrono::system_clock::time_point TimeParam::AsTime() const
 
 UserInfoParam::UserInfoParam(User *u): Parameter(F_USERNAMEWITHINFO)
 {
-	u->lock.lock();
 	id = u->id;
 	icon = u->icon;
 	flags = 0; // TODO: chat flags
 	name = new char[u->name.size()];
 	std::copy(u->name.begin(), u->name.end(), name);
-	u->lock.unlock();
 }
 
 void UserInfoParam::Write(std::ostream &s) const
@@ -186,7 +184,7 @@ void UserInfoParam::Write(std::ostream &s) const
 
 uint16_t UserInfoParam::GetSize() const
 {
-	return strlen(name)+6;
+	return strlen(name)+8;
 }
 
 Transaction::Transaction(User *user, std::istream &s)
@@ -235,6 +233,9 @@ void Transaction::ReadParams(std::istream &s)
 					case F_FILETYPE:
 						params.push_back(new Int32Param(s));
 						break;
+					case F_USERACCESS:
+						params.push_back(new Int64Param(s));
+						break;
 					case F_USERNAME:
 					case F_USERLOGIN:
 					case F_CHATSUBJECT:
@@ -253,7 +254,6 @@ void Transaction::ReadParams(std::istream &s)
 						break;
 					case F_DATA:
 					case F_USERPASSWORD:
-					case F_USERACCESS:
 					case F_NEWSCATGUID:
 						params.push_back(new ByteArrayParam(s));
 						break;

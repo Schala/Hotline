@@ -29,24 +29,57 @@ Server::Server(boost::asio::io_service &io, const tcp::endpoint &ep):
 		throw std::runtime_error("[Internal error]: Multiple server instances found.");
 	else
 		global_inst = this;
-
+	
+	Log("Server initialised");
 	Listen();
+}
+
+void Server::Disconnect(User *u)
+{
+	u->Disconnect();
+	
+	if (users.find(u->id) != users.end())
+	{
+		Log(std::string(u->name + " has disconnected."));
+		users.erase(u->id);
+	}
+	else
+	{
+		Log(std::string(u->host + " has disconnected."));
+		delete u;
+	}
 }
 
 void Server::Listen()
 {
 	auto u = new User(io);
+	
 	listener.async_accept(u->sock,
 		[this, u](boost::system::error_code ec)
 		{
 			if (ec)
+			{
+				Resolve(u);
+				Disconnect(u);
 				Log(ec.message());
+			}
 			else
+			{
 				//StartUser(u);
+				Resolve(u);
+				Log("Incoming connection from " + u->host);
 				ValidateHello(u);
+			}
 			
 			Listen();
 		});
+}
+
+void Server::Resolve(User *u)
+{
+	tcp::endpoint ep = u->sock.remote_endpoint();
+	tcp::resolver rslv(io);
+	u->host = rslv.resolve(ep)->host_name();
 }
 
 /*void Server::StartUser(User *u)
@@ -58,15 +91,21 @@ void Server::ValidateHello(User *u)
 {
 	using namespace boost::asio;
 	
-	char hello[13];
-	hello[12] = 0;
+	char *hello = new char[12];
+	std::fill(hello, hello+12, 0);
 	
 	async_read(u->sock, buffer(hello, 12),
-		[this, u, &hello](boost::system::error_code ec, size_t s)
+		[this, u, hello](boost::system::error_code ec, size_t s)
 		{
-			if (ec || strcmp(hello, "TRTPHOTL\0\1\0\2") != 0)
+			if (ec)
 			{
 				Log(ec.message());
+				Disconnect(u);
+			}
+			else if (strncmp(hello, "TRTPHOTL\0\1\0\2", 12) != 0)
+			{
+				Log("["+u->host+"]: Bad connection greeting");
+				Disconnect(u);
 			}
 			else
 			{
@@ -77,15 +116,18 @@ void Server::ValidateHello(User *u)
 						if (ec)
 						{
 							Log(ec.message());;
-							//Disconnect(u);
+							Disconnect(u);
 						}
 						else
 						{
-							users.emplace(++last_user_id, u);
-							ReadTransaction(users[last_user_id]);
+							u->id = ++last_user_id;
+							users.emplace(u->id, u);
+							ReadTransaction(u);
 						}
 					});
 			}
+			
+			delete[] hello;
 		});
 }
 
@@ -102,8 +144,8 @@ void Server::ReadTransaction(User *u)
 			if (ec)
 			{
 				Log(ec.message());
-				//Disconnect(u);
 				u->lock.unlock();
+				Disconnect(u);
 			}
 			else
 			{
@@ -116,8 +158,8 @@ void Server::ReadTransaction(User *u)
 						if (ec)
 						{
 							Log(ec.message());
-							//Disconnect(u);
 							u->lock.unlock();
+							Disconnect(u);
 						}
 						else
 						{
@@ -183,11 +225,15 @@ void Server::HandleLogin(User *u, Transaction *trans)
 		{
 			if (ec)
 			{
-				Log(ec.message());;
-				//Disconnect(u);
+				Log(ec.message());
+				u->lock.unlock();
+				Disconnect(u);
 			}
-			u->lock.unlock();
-			ReadTransaction(u);
+			else
+			{
+				u->lock.unlock();
+				ReadTransaction(u);
+			}
 		});
 }
 
@@ -207,7 +253,7 @@ void Server::HandleAgreed(User *u, Transaction *trans)
 	trans->Write(ss, true);
 	delete trans;
 	
-	trans = new Transaction(u, OP_USERACCESS, true, u->last_trans_id, 0);
+	trans = new Transaction(u, OP_USERACCESS, false, u->last_trans_id, 0);
 	trans->params.push_back(new Int64Param(F_USERACCESS, tmpacc));
 	trans->params.push_back(new UserInfoParam(u));
 	trans->Write(ss, true);
@@ -215,8 +261,8 @@ void Server::HandleAgreed(User *u, Transaction *trans)
 	
 	trans = new Transaction(u, OP_SERVERBANNER, false, u->last_trans_id, 0);
 	trans->params.push_back(new Int32Param(F_SERVERBANNERTYPE, 0x55524C20)); // TODO: banner handling, using 'URL ' for now
-	trans->params.push_back(new StringParam(F_SERVERBANNERURL, "http://localhost:80/")); // most likely a 404
-	trans->Write(ss, true);
+	trans->params.push_back(new StringParam(F_SERVERBANNERURL, "http://vivahx.com/images/vivahx.gif")); // most likely a 404
+	trans->Write(ss);
 	delete trans;
 	
 	async_write(u->sock, buffer(ss.str(), ss.str().size()),
@@ -224,11 +270,15 @@ void Server::HandleAgreed(User *u, Transaction *trans)
 		{
 			if (ec)
 			{
-				Log(ec.message());;
-				//Disconnect(u);
+				Log(ec.message());
+				u->lock.unlock();
+				Disconnect(u);
 			}
-			u->lock.unlock();
-			ReadTransaction(u);
+			else
+			{
+				u->lock.unlock();
+				ReadTransaction(u);
+			}
 		});
 }
 
@@ -248,10 +298,14 @@ void Server::HandleGetUserNameList(User *u)
 		{
 			if (ec)
 			{
-				Log(ec.message());;
-				//Disconnect(u);
+				Log(ec.message());
+				u->lock.unlock();
+				Disconnect(u);
 			}
-			u->lock.unlock();
-			ReadTransaction(u);
+			else
+			{
+				u->lock.unlock();
+				ReadTransaction(u);
+			}
 		});
 }

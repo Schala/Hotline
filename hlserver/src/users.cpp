@@ -11,3 +11,10 @@ User::~User()
 {
 	// TODO: socket stuff
 }
+
+void User::Disconnect()
+{
+	// NOTE: should we care about socket errors here?
+	sock.cancel();
+	sock.close();
+}

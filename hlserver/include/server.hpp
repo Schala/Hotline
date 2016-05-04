@@ -24,6 +24,7 @@ class Server final
 public:
 	Server(boost::asio::io_service&, const tcp::endpoint&);
 	//~Server();
+	void Disconnect(class User*);
 private:
 	std::map<uint16_t, class User*> users;
 	std::string name, description;
@@ -37,6 +38,7 @@ private:
 	
 	void ReadTransaction(class User*);
 	void Listen();
+	void Resolve(class User*);
 	//void StartUser(UserPtr);
 	//void CheckUser(UserPtr);
 	void ValidateHello(class User*);

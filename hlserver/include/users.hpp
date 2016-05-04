@@ -152,6 +152,7 @@ struct User final
 	
 	User(boost::asio::io_service&);
 	~User();
+	void Disconnect();
 	
 	bool ComparePassword(const uint8_t *sum) const
 	{
