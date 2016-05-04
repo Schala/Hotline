@@ -143,7 +143,7 @@ void Server::ReadTransaction(User *u)
 			u->lock.lock();
 			if (ec)
 			{
-				Log(ec.message());
+				if (ec.value() != error::eof) Log(ec.message());
 				u->lock.unlock();
 				Disconnect(u);
 			}
@@ -175,6 +175,7 @@ void Server::ReadTransaction(User *u)
 									delete trans;
 									HandleGetUserNameList(u);
 									break;
+								case OP_GETCLIENTINFOTEXT: HandleGetUserInfo(u, trans); break;
 								default: u->lock.unlock();
 							}
 						}
@@ -261,7 +262,7 @@ void Server::HandleAgreed(User *u, Transaction *trans)
 	
 	trans = new Transaction(u, OP_SERVERBANNER, false, u->last_trans_id, 0);
 	trans->params.push_back(new Int32Param(F_SERVERBANNERTYPE, 0x55524C20)); // TODO: banner handling, using 'URL ' for now
-	trans->params.push_back(new StringParam(F_SERVERBANNERURL, "http://vivahx.com/images/vivahx.gif")); // most likely a 404
+	trans->params.push_back(new StringParam(F_SERVERBANNERURL, "about:blank")); // most likely a 404
 	trans->Write(ss);
 	delete trans;
 	
@@ -301,6 +302,37 @@ void Server::HandleGetUserNameList(User *u)
 				Log(ec.message());
 				u->lock.unlock();
 				Disconnect(u);
+			}
+			else
+			{
+				Log(u->name + " successfully logged in.");
+				u->lock.unlock();
+				ReadTransaction(u);
+			}
+		});
+}
+
+void Server::HandleGetUserInfo(User *u, Transaction *trans)
+{
+	using namespace boost::asio;
+	
+	std::ostringstream ss;
+	big_uint16_t uid = trans->params[0]->AsInt16();
+	
+	delete trans;
+	trans = new Transaction(u, 0, true, u->last_trans_id, 0);
+	trans->params.push_back(new StringParam(F_USERNAME, users[uid]->name.data()));
+	trans->params.push_back(new StringParam(F_DATA, users[uid]->InfoText().data()));
+	trans->Write(ss, true);
+	delete trans;
+	
+	async_write(u->sock, buffer(ss.str(), ss.str().size()),
+		[this, u](boost::system::error_code ec, size_t s)
+		{
+			if (ec)
+			{
+				Log(ec.message());
+				u->lock.unlock();
 			}
 			else
 			{

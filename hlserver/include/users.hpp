@@ -5,6 +5,7 @@
 #include <boost/asio.hpp>
 #include <boost/endian/arithmetic.hpp>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <mutex>
 #include <openssl/sha.h>
@@ -138,7 +139,7 @@ enum FolderAccess: uint8_t
 
 struct User final
 {
-	std::string alias, name, login, host, auto_reply;
+	std::string name, login, host, auto_reply;
 	uint8_t pw_sum[SHA256_DIGEST_LENGTH];
 	tcp::socket sock;
 	std::mutex lock;
@@ -153,11 +154,19 @@ struct User final
 	User(boost::asio::io_service&);
 	~User();
 	void Disconnect();
+	std::string InfoText() const;
 	
 	bool ComparePassword(const uint8_t *sum) const
 	{
 		return strncmp(reinterpret_cast<const char*>(pw_sum),
 			reinterpret_cast<const char*>(sum), SHA256_DIGEST_LENGTH) == 0 ? true : false;
+	}
+	
+	std::string PasswordSumString() const
+	{
+		std::string s(SHA256_DIGEST_LENGTH+1, 0);
+		for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) sprintf(&s[i], "%02x", pw_sum[i]);
+		return s;
 	}
 };
 

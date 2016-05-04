@@ -227,6 +227,7 @@ void Transaction::ReadParams(std::istream &s)
 					case F_USERFLAGS:
 					case F_OPTIONS:
 					case F_VERS:
+					case F_USERID:
 						params.push_back(new Int16Param(s));
 						break;
 					case F_FILESIZE:

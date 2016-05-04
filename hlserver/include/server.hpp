@@ -45,6 +45,7 @@ private:
 	void HandleLogin(class User*, class Transaction*);
 	void HandleAgreed(class User*, class Transaction*);
 	void HandleGetUserNameList(class User*);
+	void HandleGetUserInfo(class User*, class Transaction*);
 };
 
 Server const* GlobalInstance();
