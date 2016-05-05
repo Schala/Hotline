@@ -38,7 +38,7 @@ void Server::Disconnect(User *u)
 {
 	u->Disconnect();
 	
-	if (users.find(u->id) != users.end())
+	if ((users.find(u->id) != users.end()) && !u->name.empty())
 	{
 		Log(std::string(u->name + " has disconnected."));
 		users.erase(u->id);
@@ -216,8 +216,10 @@ void Server::HandleLogin(User *u, Transaction *trans)
 	delete trans;
 	
 	trans = new Transaction(u, OP_SHOWAGREEMENT, false, u->last_trans_id, 0);
-	// TODO: agrrement stuff
-	trans->params.push_back(new Int16Param(F_NOSERVERAGREEMENT, 1));
+	if (agreement.empty())
+		trans->params.push_back(new Int16Param(F_NOSERVERAGREEMENT, 1));
+	else
+		trans->params.push_back(new StringParam(F_DATA, agreement.data()));
 	trans->Write(ss, true);
 	delete trans;
 	

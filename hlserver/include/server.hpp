@@ -27,7 +27,7 @@ public:
 	void Disconnect(class User*);
 private:
 	std::map<uint16_t, class User*> users;
-	std::string name, description;
+	std::string name, description, agreement;
 	std::vector<TrackerEntry*> trackers;
 	boost::thread_group threads;
 	tcp::acceptor listener;

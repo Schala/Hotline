@@ -25,6 +25,7 @@ std::string User::InfoText() const
 		"\rLogin: " + login +
 		"\rPassword Hash: " + PasswordSumString() +
 		"\rAddress: " + sock.remote_endpoint().address().to_string() +
+		"\rPort: " + std::to_string(sock.remote_endpoint().port()) +
 		"\rHostname: " + host +
 		"\rUser ID: " + std::to_string(id) +
 		"\rVersion: " + std::to_string(client_ver) +
