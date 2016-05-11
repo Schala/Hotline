@@ -152,8 +152,8 @@ struct Parameter
 	virtual uint16_t AsInt16() const;
 	virtual uint32_t AsInt32() const;
 	virtual uint64_t AsInt64() const;
-	virtual char* AsString() const;
-	virtual uint8_t* AsByteArray() const;
+	virtual std::string AsString() const;
+	virtual std::vector<uint8_t> AsByteArray() const;
 	virtual std::chrono::system_clock::time_point AsTime() const;
 };
 
@@ -210,58 +210,43 @@ struct Int64Param final: Parameter
 
 struct StringParam final: Parameter
 {
-	char *text;
+	std::string text;
 	
-	StringParam(uint16_t t, const char *s): Parameter(t)
-	{
-		text = new char[strlen(s)+1];
-		std::copy(s, s+strlen(s), text);
-	}
+	StringParam(uint16_t t, const char *s): Parameter(t), text(s) {}
 	
 	StringParam(std::istream &s): Parameter(s)
 	{
-		big_uint16_t size = 0;
+		big_uint16_t size;
 		s.read(reinterpret_cast<char*>(&size), 2);
-		text = new char[size+1];
-		s.read(text, size);
-	}
-	
-	~StringParam()
-	{
-		delete[] text;
+		text.resize(size);
+		s.read(&text[0], size);
 	}
 	
 	void Write(std::ostream&) const;
 	uint16_t GetSize() const override;
-	char* AsString() const override;
+	std::string AsString() const override;
 };
 
 struct ByteArrayParam final: Parameter
 {
-	big_uint16_t size;
-	uint8_t *bytes;
+	std::vector<uint8_t> bytes;
 	
-	ByteArrayParam(uint16_t t, const uint8_t *b, uint16_t len): Parameter(t), size(len)
+	ByteArrayParam(uint16_t t, const uint8_t *b, uint16_t len): Parameter(t)
 	{
-		bytes = new uint8_t[len];
-		std::copy(b, b+len, bytes);
+		bytes.insert(bytes.begin(), b, b+len);
 	}
 	
 	ByteArrayParam(std::istream &s): Parameter(s)
 	{
+		big_uint16_t size;
 		s.read(reinterpret_cast<char*>(&size), 2);
-		bytes = new uint8_t[size];
-		s.read(reinterpret_cast<char*>(bytes), size);
-	}
-	
-	~ByteArrayParam()
-	{
-		delete[] bytes;
+		bytes.resize(size);
+		s.read(reinterpret_cast<char*>(&bytes[0]), size);
 	}
 	
 	void Write(std::ostream&) const;
 	uint16_t GetSize() const override;
-	uint8_t* AsByteArray() const override;
+	std::vector<uint8_t> AsByteArray() const override;
 };
 
 struct TimeParam final: Parameter

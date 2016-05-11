@@ -26,14 +26,14 @@ uint64_t Parameter::AsInt64() const
 	return 0;
 }
 
-char* Parameter::AsString() const
+std::string Parameter::AsString() const
 {
-	return nullptr;
+	return "";
 }
 
-uint8_t* Parameter::AsByteArray() const
+std::vector<uint8_t> Parameter::AsByteArray() const
 {
-	return nullptr;
+	return std::vector<uint8_t>();
 }
 
 std::chrono::system_clock::time_point Parameter::AsTime() const
@@ -102,40 +102,39 @@ void StringParam::Write(std::ostream &s) const
 {
 	big_uint16_t size = GetSize();
 	std::string str = LF2CR(std::string(text));
-	std::copy(str.begin(), str.end(), text);
 	
 	Parameter::Write(s);
 	s.write(reinterpret_cast<const char*>(&size), 2);
-	s.write(text, GetSize());
+	s.write(str.data(), GetSize());
 }
 
 uint16_t StringParam::GetSize() const
 {
-	return strlen(text);
+	return text.size();
 }
 
-char* StringParam::AsString() const
+std::string StringParam::AsString() const
 {
 #if BOOST_OS_UNIX
 	std::string str = CR2LF(std::string(text));
-	std::copy(str.begin(), str.end(), text);
 #endif // BOOST_OS_UNIX
-	return text;
+	return str;
 }
 
 void ByteArrayParam::Write(std::ostream &s) const
 {
+	big_uint16_t size = GetSize();
 	Parameter::Write(s);
 	s.write(reinterpret_cast<const char*>(&size), 2);
-	s.write(reinterpret_cast<const char*>(bytes), size);
+	s.write(reinterpret_cast<const char*>(&bytes[0]), size);
 }
 
 uint16_t ByteArrayParam::GetSize() const
 {
-	return size;
+	return bytes.size();
 }
 
-uint8_t* ByteArrayParam::AsByteArray() const
+std::vector<uint8_t> ByteArrayParam::AsByteArray() const
 {
 	return bytes;
 }
@@ -299,9 +298,8 @@ void Transaction::Write(std::ostream &s, bool preserve_id)
 	
 	if (reply)
 		++user->nreplies;
-	else if (!preserve_id)
+	if (!preserve_id)
 		id = ++user->last_trans_id;
-	else ;
 	
 	s.write(reinterpret_cast<const char*>(&id), 4);
 	s.write(reinterpret_cast<const char*>(&error), 4);

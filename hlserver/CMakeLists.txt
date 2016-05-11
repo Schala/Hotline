@@ -1,10 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 project(HLServer)
 
-if(${CMAKE_COMPILER_IS_GNUCXX})
-	add_definitions("-std=gnu++14")
-endif()
-
 find_package(Boost 1.60.0 REQUIRED COMPONENTS system thread)
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)

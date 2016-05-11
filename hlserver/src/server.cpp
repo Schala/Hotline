@@ -176,6 +176,7 @@ void Server::ReadTransaction(User *u)
 									HandleGetUserNameList(u);
 									break;
 								case OP_GETCLIENTINFOTEXT: HandleGetUserInfo(u, trans); break;
+								case OP_CHATSEND: HandleSendChat(u, trans); break;
 								default: u->lock.unlock();
 							}
 						}
@@ -193,9 +194,9 @@ void Server::HandleLogin(User *u, Transaction *trans)
 	if (trans->params.size() > 1)
 	{
 		u->login = trans->params[0]->AsString();
-		uint8_t *password = trans->params[1]->AsByteArray();
+		std::vector<uint8_t> password = trans->params[1]->AsByteArray();
 		SHA256_Init(ctx);
-		SHA256_Update(ctx, password, trans->params[1]->GetSize());
+		SHA256_Update(ctx, &password[0], password.size());
 		SHA256_Final(u->pw_sum, ctx);
 		u->client_ver = trans->params[2]->AsInt16();
 	}
@@ -342,4 +343,52 @@ void Server::HandleGetUserInfo(User *u, Transaction *trans)
 				ReadTransaction(u);
 			}
 		});
+}
+
+void Server::HandleSendChat(User *u, Transaction *trans)
+{
+	using namespace boost::asio;
+	
+	uint8_t padding[15];
+	std::fill(std::begin(padding), std::end(padding), ' ');
+	padding[13] = ':';
+	padding[14] = ' ';
+	
+	int i = u->name.size() >= 13 ? 13 : u->name.size();
+	std::copy_n(u->name.begin(), i, padding+(13-i));
+	
+	//bool special = static_cast<bool>(trans->params[0]->AsInt16() & 1);
+	std::vector<uint8_t> msg = trans->params[0]->AsByteArray();
+	msg.insert(msg.begin(), std::begin(padding), std::end(padding));
+	msg.push_back('\r');
+	
+	delete trans;
+	trans = new Transaction(u, OP_CHATMSG, false, 0, 0);
+	trans->params.push_back(new ByteArrayParam(F_DATA, msg.data(), msg.size()));
+	trans->params.push_back(new Int16Param(F_USERID, u->id));
+	
+	for (auto p: users)
+	{
+		std::ostringstream ss;
+		User *up = p.second;
+		trans->id = up->last_trans_id;
+		
+		trans->Write(ss);
+		if (u != up) up->lock.lock();
+		
+		async_write(up->sock, buffer(ss.str(), ss.str().size()),
+			[this, u, up, p, trans](boost::system::error_code ec, size_t s)
+			{
+				if (ec)
+				{
+					Log(ec.message());
+					up->lock.unlock();
+				}
+				else
+					up->lock.unlock();
+				
+				if (p == *users.end()) delete trans;
+				if (!ec && (u == up)) ReadTransaction(u);
+			});
+	}
 }
