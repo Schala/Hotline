@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <iomanip>
 #include <iterator>
 #include <sstream>
 #include <stdexcept>
@@ -349,17 +350,13 @@ void Server::HandleSendChat(User *u, Transaction *trans)
 {
 	using namespace boost::asio;
 	
-	uint8_t padding[15];
-	std::fill(std::begin(padding), std::end(padding), ' ');
-	padding[13] = ':';
-	padding[14] = ' ';
-	
-	int i = u->name.size() >= 13 ? 13 : u->name.size();
-	std::copy_n(u->name.begin(), i, padding+(13-i));
+	std::ostringstream name_padding;
+	name_padding << std::setw(15) << std::setfill(' ') << u->name << ": ";
+	std::string namestr = name_padding.str();
 	
 	//bool special = static_cast<bool>(trans->params[0]->AsInt16() & 1);
 	std::vector<uint8_t> msg = trans->params[0]->AsByteArray();
-	msg.insert(msg.begin(), std::begin(padding), std::end(padding));
+	msg.insert(msg.begin(), namestr.begin(), namestr.end());
 	msg.push_back('\r');
 	
 	delete trans;
