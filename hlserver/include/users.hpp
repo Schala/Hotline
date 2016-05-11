@@ -168,6 +168,13 @@ struct User final
 		for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) sprintf(&s[i], "%02x", pw_sum[i]);
 		return s;
 	}
+	
+	std::string VersionString() const
+	{
+		std::string s(std::to_string(client_ver));
+		s.insert(1, 1, '.'); s.insert(3, 1, '.');
+		return s;
+	}
 };
 
 #endif // _USERS_H
